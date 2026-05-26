@@ -1,15 +1,34 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: corsHeaders,
+    });
+  }
+
   try {
     if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
+      return jsonResponse(
+        {
+          success: false,
+          error: "Method not allowed",
+        },
+        405
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
       return jsonResponse(
@@ -104,12 +123,18 @@ serve(async (req: Request) => {
 
     await admin.from("comments").delete().eq("user_id", userId);
     await admin.from("posts").delete().eq("user_id", userId);
+
+    await admin
+      .from("notifications")
+      .delete()
+      .or(
+        `recipient_id.eq.${userId},actor_id.eq.${userId}`
+      );
+
     await admin.from("profiles").delete().eq("id", userId);
 
-    const { error: deleteUserError } = await admin.auth.admin.deleteUser(
-      userId,
-      true
-    );
+    const { error: deleteUserError } =
+      await admin.auth.admin.deleteUser(userId, true);
 
     if (deleteUserError) throw deleteUserError;
 
@@ -121,7 +146,9 @@ serve(async (req: Request) => {
       {
         success: false,
         error:
-          err instanceof Error ? err.message : "Could not delete account.",
+          err instanceof Error
+            ? err.message
+            : "Could not delete account.",
       },
       500
     );
@@ -132,6 +159,7 @@ function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
+      ...corsHeaders,
       "Content-Type": "application/json",
     },
   });
