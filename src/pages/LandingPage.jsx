@@ -1,7 +1,57 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function LandingPage() {
   const navigate = useNavigate();
+
+  const [deferredPrompt, setDeferredPrompt] =
+    useState(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handler
+    );
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handler
+      );
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    // iPhone / Safari
+    const isIOS =
+      /iphone|ipad|ipod/i.test(
+        window.navigator.userAgent
+      );
+
+    if (isIOS) {
+      alert(
+        "To install The Booth:\n\nTap Share → Add to Home Screen"
+      );
+      return;
+    }
+
+    // Android / Chrome / Desktop
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+
+      const { outcome } =
+        await deferredPrompt.userChoice;
+
+      if (outcome === "accepted") {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   return (
     <div style={styles.page}>
@@ -11,12 +61,15 @@ export default function LandingPage() {
 
           <div style={styles.logoTextWrap}>
             <span style={styles.logoThe}>The</span>
-            <span style={styles.logoBooth}>Booth</span>
+            <span style={styles.logoBooth}>
+              Booth
+            </span>
           </div>
         </div>
 
         <p style={styles.subtitle}>
-          Join communities, share posts, and stay connected.
+          Join communities, share posts,
+          and stay connected.
         </p>
 
         <button
@@ -25,6 +78,14 @@ export default function LandingPage() {
           style={styles.button}
         >
           Continue
+        </button>
+
+        <button
+          type="button"
+          onClick={handleInstall}
+          style={styles.installButton}
+        >
+          ⬇️ Download App
         </button>
       </div>
     </div>
@@ -51,7 +112,8 @@ const styles = {
     borderRadius: "22px",
     padding: "34px 24px",
     textAlign: "center",
-    boxShadow: "0 12px 30px rgba(0,0,0,0.06)",
+    boxShadow:
+      "0 12px 30px rgba(0,0,0,0.06)",
   },
 
   logo: {
@@ -103,5 +165,18 @@ const styles = {
     cursor: "pointer",
     fontWeight: "700",
     fontSize: "15px",
+  },
+
+  installButton: {
+    marginTop: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "999px",
+    background: "#fff",
+    color: "#111",
+    padding: "8px 14px",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "13px",
+    fontFamily: "system-ui, sans-serif",
   },
 };
