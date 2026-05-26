@@ -134,7 +134,7 @@ serve(async (req: Request) => {
     await admin.from("profiles").delete().eq("id", userId);
 
     const { error: deleteUserError } =
-      await admin.auth.admin.deleteUser(userId, true);
+      await admin.auth.admin.deleteUser(userId, false);
 
     if (deleteUserError) throw deleteUserError;
 
