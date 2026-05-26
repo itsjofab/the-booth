@@ -1,10 +1,9 @@
-import { Outlet, useNavigate, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useCallback, useEffect, useState } from "react";
 
 
 export default function AppLayout() {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const [userId, setUserId] = useState(null);
@@ -119,7 +118,7 @@ useEffect(() => {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    navigate("/", { replace: true });
+    window.location.href = "/";
   };
 
   const isActive = (path) => location.pathname === path;
