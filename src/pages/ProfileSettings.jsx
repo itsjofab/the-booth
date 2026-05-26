@@ -215,12 +215,25 @@ export default function ProfileSettings() {
     if (!confirmDelete) return;
 
     try {
-      const { error } = await supabase.functions.invoke("delete-account", {
+      const { data, error } = await supabase.functions.invoke("delete-account", {
         method: "POST",
       });
 
       if (error) {
-        throw error;
+        let message = "Could not delete account.";
+
+        try {
+          const responseData = await error.context?.json?.();
+          message = responseData?.error || message;
+        } catch {
+          message = error.message || message;
+        }
+
+        throw new Error(message);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       await supabase.auth.signOut();

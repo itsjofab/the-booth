@@ -78,6 +78,25 @@ serve(async (req: Request) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const userId = user.id;
 
+    const { count: ownedCommunityCount, error: ownedCommunityError } =
+      await admin
+        .from("communities")
+        .select("*", { count: "exact", head: true })
+        .eq("created_by", userId);
+
+    if (ownedCommunityError) throw ownedCommunityError;
+
+    if ((ownedCommunityCount || 0) > 0) {
+      return jsonResponse(
+        {
+          success: false,
+          error:
+            "You must transfer ownership of your communities before deleting your account.",
+        },
+        400
+      );
+    }
+
     const { data: adminCommunities, error: adminCheckError } = await admin
       .from("memberships")
       .select("community_id")
@@ -125,11 +144,9 @@ serve(async (req: Request) => {
     await admin.from("posts").delete().eq("user_id", userId);
 
     await admin
-      .from("notifications")
-      .delete()
-      .or(
-        `recipient_id.eq.${userId},actor_id.eq.${userId}`
-      );
+    .from("notifications")
+    .delete()
+    .eq("recipient_id", userId);
 
     await admin.from("profiles").delete().eq("id", userId);
 

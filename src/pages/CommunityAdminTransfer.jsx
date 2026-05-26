@@ -125,23 +125,43 @@ export default function CommunityAdminTransfer() {
 
   const transferOwnership = async (member) => {
     const confirmTransfer = window.confirm(
-      `Make @${member.profile?.username || "user"} an admin?`
+      `Transfer ownership to @${member.profile?.username || "user"}?\n\nYou will become a regular member.`
     );
 
     if (!confirmTransfer) return;
 
-    const { error } = await supabase
-      .from("memberships")
-      .update({ role: "admin" })
-      .eq("id", member.id);
+    const { data, error } = await supabase.functions.invoke(
+      "transfer-community-ownership",
+      {
+        method: "POST",
+        body: {
+          communityId: id,
+          newOwnerId: member.user_id,
+        },
+      }
+    );
 
     if (error) {
-      alert("Could not transfer ownership.");
+      let message = "Could not transfer ownership.";
+
+      try {
+        const responseData = await error.context?.json?.();
+        message = responseData?.error || message;
+      } catch {
+        message = error.message || message;
+      }
+
+      alert(message);
       return;
     }
 
-    alert("Ownership transferred. This member is now an admin.");
-    navigate(`/c/${id}/admin`);
+    if (data?.error) {
+      alert(data.error);
+      return;
+    }
+
+    alert("Ownership transferred. You are now a member.");
+    navigate(`/c/${id}`);
   };
 
   return (
