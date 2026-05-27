@@ -58,11 +58,7 @@ The Booth can be installed directly to your phone home screen and used like a na
 
 # Demo Video
 
-Upload your screen recording directly into the GitHub README editor and GitHub will automatically generate an embedded video player here.
-
-Example:
-
-https://github.com/user-attachments/assets/your-video-id
+https://github.com/user-attachments/assets/d54b0039-433b-416f-b49c-5036ab340a1d
 
 ---
 
