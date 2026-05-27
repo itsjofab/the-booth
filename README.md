@@ -1,16 +1,84 @@
-# React + Vite
+# The Booth
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Twitter-style communities social platform built with React, Supabase, and Vite PWA.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Community-based social posting
+- Twitter-style feed experience
+- User profiles and avatars
+- Community moderation tools
+- Likes, bookmarks, and comments
+- Transferable community ownership
+- Account deletion with full cleanup
+- Installable PWA for mobile and desktop
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React
+- Vite
+- Supabase
+- Vercel
+- Cloudflare
+- Progressive Web App (PWA)
 
-## Expanding the ESLint configuration
+## Live App
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+https://jointhebooth.com
+
+---
+
+# Preview
+
+## Landing Page
+
+![Landing Page](./public-readme/landing-page.png)
+
+## Home Feed
+
+![Home Feed](./public-readme/home-feed.png)
+
+## Community Page
+
+![Community Page](./public-readme/community-page.png)
+
+## Profile Page
+
+![Profile Page](./public-readme/profile-page.png)
+
+---
+
+# Installable Mobile App (PWA)
+
+The Booth can be installed directly to your phone home screen and used like a native app on Android, iPhone, iPad, and desktop.
+
+![Installed PWA](./public-readme/mobile-pwa.png)
+
+---
+
+# Demo Video
+
+Upload your screen recording directly into the GitHub README editor and GitHub will automatically generate an embedded video player here.
+
+Example:
+
+https://github.com/user-attachments/assets/your-video-id
+
+---
+
+# Development
+
+```bash
+npm install
+npm run dev
+```
+
+# Production Build
+
+```bash
+npm run build
+```
+
+# License
+
+MIT
