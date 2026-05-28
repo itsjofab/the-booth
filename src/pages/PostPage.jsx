@@ -9,6 +9,11 @@ import CreatePost from "../components/CreatePost";
 import { attachPostProfiles } from "../utils/attachPostProfiles";
 import QuotePostModal from "../components/QuotePostModal";
 import { getCachedCount, setCachedCount } from "../utils/countCache";
+import { isDemoUser } from "../utils/demoUser";
+import {
+  getDemoSandbox,
+  updateDemoSandbox,
+} from "../utils/demoSandbox";
 
 export default function PostPage() {
   const { id } = useParams();
@@ -84,6 +89,24 @@ export default function PostPage() {
 const refreshLikeStatus = useCallback(async () => {
   if (!id) return;
 
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
+
+  if (isDemoUser(user)) {
+    const sandbox = getDemoSandbox();
+
+    const likedPostIds = sandbox.likedPostIds || [];
+    const bookmarkedPostIds =
+      sandbox.bookmarkedPostIds || [];
+
+    setLiked(likedPostIds.includes(id));
+    setBookmarked(bookmarkedPostIds.includes(id));
+
+    setLikes(post?.likes_count || 0);
+
+    return;
+  }
+
   const { data: likeRows, error } = await supabase
     .from("likes")
     .select("id, user_id")
@@ -104,7 +127,7 @@ const refreshLikeStatus = useCallback(async () => {
   }
 
   setLiked((likeRows || []).some((like) => like.user_id === userId));
-}, [id, userId]);
+}, [id, userId, post?.likes_count]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -170,6 +193,27 @@ const refreshLikeStatus = useCallback(async () => {
       return updated;
     });
 
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (isDemoUser(user)) {
+      updateDemoSandbox((current) => {
+        const likedPostIds =
+          current.likedPostIds || [];
+
+        return {
+          ...current,
+          likedPostIds: next
+            ? [...new Set([...likedPostIds, id])]
+            : likedPostIds.filter(
+                (postId) => postId !== id
+              ),
+        };
+      });
+
+      return;
+    }
+
     try {
       if (next) {
         const { error } = await supabase.from("likes").insert({
@@ -204,6 +248,27 @@ const refreshLikeStatus = useCallback(async () => {
 
     const next = !bookmarked;
     setBookmarked(next);
+
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (isDemoUser(user)) {
+      updateDemoSandbox((current) => {
+        const bookmarkedPostIds =
+          current.bookmarkedPostIds || [];
+
+        return {
+          ...current,
+          bookmarkedPostIds: next
+            ? [...new Set([...bookmarkedPostIds, id])]
+            : bookmarkedPostIds.filter(
+                (postId) => postId !== id
+              ),
+        };
+      });
+
+      return;
+    }
 
     try {
       if (next) {
@@ -256,6 +321,20 @@ const refreshLikeStatus = useCallback(async () => {
   };
 
   const reportPost = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (isDemoUser(user)) {
+      setPost((prev) => ({
+        ...prev,
+        is_reported: true,
+      }));
+
+      setMenuOpen(false);
+      alert("Demo preview: post reported.");
+      return;
+    }
+
     const { error } = await supabase
       .from("posts")
       .update({ is_reported: true })
@@ -273,6 +352,19 @@ const refreshLikeStatus = useCallback(async () => {
   const deletePost = async () => {
     const confirmDelete = window.confirm("Delete this post?");
     if (!confirmDelete) return;
+
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (isDemoUser(user) || String(id).startsWith("demo-")) {
+      updateDemoSandbox((current) => ({
+        ...current,
+        posts: (current.posts || []).filter((post) => post.id !== id),
+      }));
+
+      navigate(-1);
+      return;
+    }
 
     const { error } = await supabase
       .from("posts")

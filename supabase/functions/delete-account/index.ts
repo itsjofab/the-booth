@@ -65,18 +65,28 @@ serve(async (req: Request) => {
       error: userError,
     } = await userClient.auth.getUser();
 
-    if (userError || !user) {
-      return jsonResponse(
-        {
-          success: false,
-          error: "Unauthorized.",
-        },
-        401
-      );
-    }
+if (userError || !user) {
+  return jsonResponse(
+    {
+      success: false,
+      error: "Unauthorized.",
+    },
+    401
+  );
+}
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-    const userId = user.id;
+if (user.email?.toLowerCase() === "demo@jointhebooth.com") {
+  return jsonResponse(
+    {
+      success: false,
+      error: "This action is disabled for the demo account.",
+    },
+    403
+  );
+}
+
+const admin = createClient(supabaseUrl, serviceRoleKey);
+const userId = user.id;
 
     const { count: ownedCommunityCount, error: ownedCommunityError } =
       await admin

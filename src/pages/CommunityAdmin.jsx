@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isDemoUser, showDemoBlocked } from "../utils/demoUser";
+import {
+  getDemoSandbox,
+  updateDemoSandbox,
+} from "../utils/demoSandbox";
 
 export default function CommunityAdmin() {
   const { id } = useParams();
@@ -79,18 +84,27 @@ export default function CommunityAdmin() {
         .eq("id", id)
         .maybeSingle();
 
-      setCommunity(communityData);
-      setName(communityData?.name || "");
-      setDescription(communityData?.description || "");
-      setRules(communityData?.rules || "");
-      setMembershipType(communityData?.membership_type || "open");
-      setApprovalType(communityData?.approval_type || "question");
-      setApprovalQuestion(communityData?.approval_question || "");
+      const sandbox = getDemoSandbox();
+      const sandboxCommunity =
+        sandbox.communities?.[id] || {};
+
+      const displayCommunity = {
+        ...communityData,
+        ...sandboxCommunity,
+      };
+
+      setCommunity(displayCommunity);
+      setName(displayCommunity?.name || "");
+      setDescription(displayCommunity?.description || "");
+      setRules(displayCommunity?.rules || "");
+      setMembershipType(displayCommunity?.membership_type || "open");
+      setApprovalType(displayCommunity?.approval_type || "question");
+      setApprovalQuestion(displayCommunity?.approval_question || "");
       setApprovalChoices(
-        Array.isArray(communityData?.approval_choices) &&
-          communityData.approval_choices.length > 0
+        Array.isArray(displayCommunity?.approval_choices) &&
+          displayCommunity.approval_choices.length > 0
           ? [
-              ...communityData.approval_choices,
+              ...displayCommunity.approval_choices,
               "",
               "",
               "",
@@ -98,8 +112,8 @@ export default function CommunityAdmin() {
             ].slice(0, 4)
           : ["", "", "", ""]
       );
-      setApprovalCorrectAnswer(communityData?.approval_correct_answer || "");
-      setBannerPreview(communityData?.banner_url || null);
+      setApprovalCorrectAnswer(displayCommunity?.approval_correct_answer || "");
+      setBannerPreview(displayCommunity?.banner_url || null);
 
       const { data: previewData } = await supabase
         .from("memberships")
@@ -244,6 +258,60 @@ export default function CommunityAdmin() {
     if (!canEditCommunity) return;
     if (!name.trim()) return;
 
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      if (!approvalIsValid || !quizIsValid) {
+        alert("Please complete the restricted approval fields.");
+        return;
+      }
+
+      const bannerUrl = bannerPreview || community?.banner_url || null;
+
+      const demoCommunityUpdate = {
+        name: name.trim(),
+        description: description.trim() || null,
+        rules: rules.trim() || null,
+        membership_type: membershipType,
+        approval_type:
+          membershipType === "restricted" ? approvalType : null,
+        approval_question:
+          membershipType === "restricted"
+            ? approvalQuestion.trim() || null
+            : null,
+        approval_choices:
+          membershipType === "restricted" && approvalType === "quiz"
+            ? cleanChoices
+            : [],
+        approval_correct_answer:
+          membershipType === "restricted" && approvalType === "quiz"
+            ? approvalCorrectAnswer
+            : null,
+        banner_url: bannerUrl,
+      };
+
+      updateDemoSandbox((current) => ({
+        ...current,
+        communities: {
+          ...(current.communities || {}),
+          [id]: demoCommunityUpdate,
+        },
+      }));
+
+      setCommunity((prev) => ({
+        ...prev,
+        ...demoCommunityUpdate,
+      }));
+
+      setBannerFile(null);
+      setBannerPreview(bannerUrl);
+
+      window.dispatchEvent(new Event("demo-community-updated"));
+
+      alert("Demo preview: community settings updated for this session only.");
+      return;
+    }
+
     if (!approvalIsValid || !quizIsValid) {
       alert("Please complete the restricted approval fields.");
       return;
@@ -318,6 +386,13 @@ export default function CommunityAdmin() {
 
   const deleteCommunity = async () => {
   if (role !== "admin") return;
+
+  const { data } = await supabase.auth.getUser();
+
+  if (isDemoUser(data?.user)) {
+    showDemoBlocked("Demo users cannot delete communities.");
+    return;
+  }
 
   const confirmed = window.confirm(
     "Delete this community? This will permanently delete the community, posts, comments, memberships, join requests, and related notifications."

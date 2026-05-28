@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isDemoUser } from "../utils/demoUser";
+import { demoMembers } from "../utils/demoData";
 
 const PAGE_SIZE = 10;
 
@@ -24,6 +26,7 @@ export default function CommunityAdminMembers() {
 
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
+      const demoMode = isDemoUser(user);
 
       if (!user) {
         navigate("/login");
@@ -51,6 +54,12 @@ export default function CommunityAdminMembers() {
         .maybeSingle();
 
       setCommunity(communityData);
+
+      if (demoMode) {
+        setMembers(demoMembers);
+        setLoading(false);
+        return;
+      }
 
       const { data: memberData, error } = await supabase
         .from("memberships")
@@ -130,6 +139,18 @@ export default function CommunityAdminMembers() {
   const changeRole = async (membershipId, nextRole) => {
     if (role !== "admin") return;
 
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === membershipId ? { ...m, role: nextRole } : m
+        )
+      );
+      alert("Demo preview: role changed.");
+      return;
+    }
+
     const { error } = await supabase
       .from("memberships")
       .update({ role: nextRole })
@@ -149,6 +170,14 @@ export default function CommunityAdminMembers() {
 
   const removeMember = async (membershipId) => {
     if (!canModerate) return;
+
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      setMembers((prev) => prev.filter((m) => m.id !== membershipId));
+      alert("Demo preview: member removed.");
+      return;
+    }
 
     const confirmRemove = window.confirm(
       "Remove this member from the community?"

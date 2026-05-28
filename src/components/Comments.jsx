@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { isDemoUser } from "../utils/demoUser";
+import {
+  getDemoSandbox,
+  updateDemoSandbox,
+} from "../utils/demoSandbox";
+
 
 export default function Comments({ postId }) {
   const [comments, setComments] = useState([]);
@@ -13,6 +19,20 @@ export default function Comments({ postId }) {
     let isActive = true;
 
     const fetchComments = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (isDemoUser(user)) {
+        const sandbox = getDemoSandbox();
+
+        const demoComments =
+          sandbox.comments?.[postId] || [];
+
+        setComments(demoComments);
+
+        return;
+      }
+
       const { data, error } = await supabase
         .from("comments")
         .select("id, post_id, user_id, content, parent_comment_id, created_at")
@@ -46,7 +66,37 @@ export default function Comments({ postId }) {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
 
+
       if (!user) return;
+
+      if (isDemoUser(user)) {
+        const demoComment = {
+          id: `demo-comment-${Date.now()}`,
+          post_id: postId,
+          user_id: user.id,
+          content,
+          created_at: new Date().toISOString(),
+        };
+
+        updateDemoSandbox((current) => {
+          const existing =
+            current.comments?.[postId] || [];
+
+          return {
+            ...current,
+            comments: {
+              ...(current.comments || {}),
+              [postId]: [demoComment, ...existing],
+            },
+          };
+        });
+
+        setComments((prev) => [demoComment, ...prev]);
+
+        setContent("");
+
+        return;
+      }
 
       await supabase.from("comments").insert({
         post_id: postId,

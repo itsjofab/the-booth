@@ -45,6 +45,7 @@ useEffect(() => {
         member_count,
         banner_url
       `)
+      .or("is_demo.is.false,is_demo.is.null")
       .ilike("name", `%${cleanSearch}%`)
       .order("created_at", { ascending: false });
 

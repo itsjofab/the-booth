@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isDemoUser } from "../utils/demoUser";
+import { demoJoinRequests } from "../utils/demoData";
 
 export default function CommunityAdminJoinRequests() {
   const { id } = useParams();
@@ -16,6 +18,7 @@ export default function CommunityAdminJoinRequests() {
 
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
+      const demoMode = isDemoUser(user);
 
       if (!user) {
         navigate("/login");
@@ -41,6 +44,11 @@ export default function CommunityAdminJoinRequests() {
         .maybeSingle();
 
       setCommunity(communityData);
+      if (demoMode) {
+        setRequests(demoJoinRequests);
+        setLoading(false);
+        return;
+      }
 
       const { data: requestData, error } = await supabase
         .from("community_join_requests")
@@ -82,6 +90,14 @@ export default function CommunityAdminJoinRequests() {
   }, [id, navigate]);
 
   const approveRequest = async (request) => {
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      alert("Demo preview: request approved.");
+      return;
+    }
+
     const { error: memberError } = await supabase
       .from("memberships")
       .upsert({
@@ -109,6 +125,14 @@ export default function CommunityAdminJoinRequests() {
   };
 
   const denyRequest = async (requestId) => {
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      alert("Demo preview: request denied.");
+      return;
+    }
+
     const { error } = await supabase
       .from("community_join_requests")
       .update({ status: "denied" })

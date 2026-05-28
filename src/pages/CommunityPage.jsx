@@ -7,6 +7,9 @@ import CreatePost from "../components/CreatePost";
 import { attachPostProfiles } from "../utils/attachPostProfiles";
 import { getCommunityBanner } from "../utils/uiDefaults";
 import { uploadArchiveImage } from "../utils/uploadArchiveImage";
+import { isDemoUser } from "../utils/demoUser";
+import { demoReportedFeedPost } from "../utils/demoData";
+import { getDemoSandbox } from "../utils/demoSandbox";
 
 function RoleBadge({ role }) {
   if (role === "admin") return <span style={styles.admin}>Admin</span>;
@@ -84,6 +87,10 @@ export default function CommunityPage() {
     const loadCommunity = async () => {
       setLoading(true);
 
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      const demoMode = isDemoUser(user);
+
       const { data: communityData, error: communityError } = await supabase
         .from("communities")
         .select(`
@@ -106,7 +113,18 @@ export default function CommunityPage() {
         console.error("COMMUNITY LOAD ERROR:", communityError);
       }
 
-      setCommunity(communityData);
+      const sandbox = getDemoSandbox();
+      const sandboxCommunity = sandbox.communities?.[id] || {};
+
+      const displayCommunity =
+        demoMode
+          ? {
+              ...communityData,
+              ...sandboxCommunity,
+            }
+          : communityData;
+
+      setCommunity(displayCommunity);
 
       const { data: postsData } = await supabase
         .from("posts")
@@ -129,7 +147,20 @@ export default function CommunityPage() {
         .order("created_at", { ascending: false });
 
       const postsWithProfiles = await attachPostProfiles(postsData || []);
-      setPosts(postsWithProfiles);
+
+      const sandboxPosts = getDemoSandbox().posts || [];
+
+      const communityDemoPosts = sandboxPosts.filter(
+        (post) => post.community_id === id
+      );
+
+      setPosts(
+        demoMode && id === demoReportedFeedPost.community_id
+          ? [demoReportedFeedPost, ...communityDemoPosts, ...postsWithProfiles]
+          : demoMode
+          ? [...communityDemoPosts, ...postsWithProfiles]
+          : postsWithProfiles
+      );
 
       if (isActive) {
         setLoading(false);
@@ -228,6 +259,55 @@ export default function CommunityPage() {
 
     return () => {
       isActive = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    const refreshDemoCommunity = () => {
+      const sandbox = getDemoSandbox();
+      const sandboxCommunity =
+        sandbox.communities?.[id] || {};
+
+      setCommunity((prev) => ({
+        ...prev,
+        ...sandboxCommunity,
+      }));
+    };
+
+    window.addEventListener(
+      "demo-community-updated",
+      refreshDemoCommunity
+    );
+
+    return () => {
+      window.removeEventListener(
+        "demo-community-updated",
+        refreshDemoCommunity
+      );
+    };
+  }, [id]);
+
+  useEffect(() => {
+    const refreshDemoPosts = () => {
+      const sandboxPosts = getDemoSandbox().posts || [];
+
+      const communityDemoPosts = sandboxPosts.filter(
+        (post) => post.community_id === id
+      );
+
+      setPosts((prev) => {
+        const realPosts = prev.filter(
+          (post) => !String(post.id).startsWith("demo-post-")
+        );
+
+        return [...communityDemoPosts, ...realPosts];
+      });
+    };
+
+    window.addEventListener("demo-post-created", refreshDemoPosts);
+
+    return () => {
+      window.removeEventListener("demo-post-created", refreshDemoPosts);
     };
   }, [id]);
   
@@ -427,6 +507,24 @@ if (notificationRows.length > 0) {
     const user = userData?.user;
 
     if (!user) return;
+
+    if (isDemoUser(user)) {
+      const sandboxPosts = getDemoSandbox().posts || [];
+
+      const communityDemoPosts = sandboxPosts.filter(
+        (post) => post.community_id === id
+      );
+
+      setPosts((prev) => {
+        const realPosts = prev.filter(
+          (post) => !String(post.id).startsWith("demo-post-")
+        );
+
+        return [...communityDemoPosts, ...realPosts];
+      });
+
+      return;
+    }
 
     const tempPost = {
       id: `temp-${Date.now()}`,

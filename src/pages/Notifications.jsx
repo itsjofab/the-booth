@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import PostSkeleton from "../components/PostSkeleton";
+import { isDemoUser } from "../utils/demoUser";
+import { demoNotifications } from "../utils/demoData";
 
 export default function Notifications() {
   const navigate = useNavigate();
@@ -19,6 +21,23 @@ export default function Notifications() {
     });
 
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (isDemoUser(user)) {
+        setNotifications(demoNotifications);
+
+        setIsAdminOrMod(true);
+
+        setUnreadNotifications(
+          demoNotifications.filter((n) => !n.is_read).length
+        );
+
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
@@ -90,6 +109,14 @@ export default function Notifications() {
   const deleteNotification = async (e, notificationId) => {
     e.stopPropagation();
 
+    if (notificationId.startsWith("demo-")) {
+      setNotifications((prev) =>
+        prev.filter((item) => item.id !== notificationId)
+      );
+
+      return;
+    }
+
     const { error } = await supabase
       .from("notifications")
       .delete()
@@ -106,6 +133,40 @@ export default function Notifications() {
   };
 
   const markRead = async (notification) => {
+    if (notification.id.startsWith("demo-")) {
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notification.id
+            ? { ...item, is_read: true }
+            : item
+        )
+      );
+
+      if (
+        notification.type === "report" &&
+        notification.community_id
+      ) {
+        navigate(
+          `/c/${notification.community_id}/admin/reports`
+        );
+
+        return;
+      }
+
+      if (
+        notification.type === "join_request" &&
+        notification.community_id
+      ) {
+        navigate(
+          `/c/${notification.community_id}/admin/requests`
+        );
+
+        return;
+      }
+
+      return;
+    }
+
     await supabase
       .from("notifications")
       .update({ is_read: true })
@@ -113,7 +174,9 @@ export default function Notifications() {
 
     setNotifications((prev) =>
       prev.map((item) =>
-        item.id === notification.id ? { ...item, is_read: true } : item
+        item.id === notification.id
+          ? { ...item, is_read: true }
+          : item
       )
     );
 
@@ -121,7 +184,8 @@ export default function Notifications() {
     const message = (notification.message || "").toLowerCase();
 
     const isReport =
-      title.includes("report") || message.includes("report");
+      title.includes("report") ||
+      message.includes("report");
 
     const isJoinRequest =
       title.includes("join request") ||

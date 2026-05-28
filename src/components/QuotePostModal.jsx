@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { uploadPostMedia } from "../utils/uploadPostMedia";
+import { isDemoUser } from "../utils/demoUser";
+import { updateDemoSandbox } from "../utils/demoSandbox";
+
 export default function QuotePostModal({
   quotedPost,
   quotedComment = null,
@@ -72,6 +75,47 @@ export default function QuotePostModal({
 
       if (!user) {
         throw new Error("You must be logged in to quote.");
+      }
+
+      if (isDemoUser(user)) {
+        const demoQuotePost = {
+          id: `demo-post-${Date.now()}`,
+          user_id: user.id,
+          community_id: quotedPost?.community_id || null,
+          content: content.trim(),
+          image_url: null,
+          media_url: null,
+          media_type: null,
+          gif_url: gifUrl.trim() || null,
+          quoted_post_id: quotedPost?.id || null,
+          quoted_comment_id: quotedComment?.id || null,
+          quoted_post: quotedPost || null,
+          quoted_comment: quotedComment || null,
+          created_at: new Date().toISOString(),
+          likes_count: 0,
+          is_hidden: false,
+          is_reported: false,
+          profile: {
+            username: "demo",
+            avatar_url: "/default-avatar.png",
+          },
+        };
+
+        updateDemoSandbox((current) => ({
+          ...current,
+          posts: [demoQuotePost, ...(current.posts || [])],
+        }));
+
+        setContent("");
+        setImageFile(null);
+        setImagePreview(null);
+        setMediaType(null);
+        setGifUrl("");
+        setShowGifInput(false);
+
+        onCreated?.();
+        onClose?.();
+        return;
       }
 
       let imageUrl = null;

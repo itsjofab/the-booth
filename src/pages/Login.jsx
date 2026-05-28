@@ -114,6 +114,39 @@ export default function Login() {
     }
   };
 
+
+  const handleDemoLogin = async () => {
+    setLoadingAction("demo");
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: "demo@jointhebooth.com",
+        password: "DemoUser123!",
+      });
+
+      if (error) {
+        setErrorMsg(error.message);
+        return;
+      }
+
+      if (!data?.session) {
+        setErrorMsg("Demo login worked, but no session was returned.");
+        return;
+      }
+
+      navigate("/", { replace: true });
+    } catch (err) {
+      setErrorMsg(err.message || "Demo login failed.");
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+
+
+
   return (
     <div style={styles.container}>
       <form onSubmit={handleLogin} style={styles.card}>
@@ -176,6 +209,19 @@ export default function Login() {
           Forgot password?
         </button>
       </form>
+      <button
+        type="button"
+        onClick={handleDemoLogin}
+        disabled={isBusy}
+        style={{
+          ...styles.demoButton,
+          opacity: isBusy ? 0.6 : 1,
+        }}
+      >
+        {loadingAction === "demo"
+          ? "Opening demo..."
+          : "Try demo account"}
+      </button>
     </div>
   );
 }
@@ -187,6 +233,7 @@ const styles = {
   container: {
     minHeight: "100vh",
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     background: "#f6f6f6",
@@ -253,6 +300,22 @@ const styles = {
     marginTop: "6px",
     letterSpacing: "0.03em",
     transition: "all 0.15s ease",
+  },
+  
+  demoButton: {
+    width: "100%",
+    maxWidth: "380px",
+    marginTop: "12px",
+    padding: "11px",
+    borderRadius: "999px",
+    border: "1px solid #b7dfc3",
+    background: "#dff5e6",
+    color: "#1f6f3d",
+    cursor: "pointer",
+    fontWeight: "700",
+    fontSize: "14px",
+    fontFamily: baseFont,
+    letterSpacing: "0.02em",
   },
 
   forgotButton: {

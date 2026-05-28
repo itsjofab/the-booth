@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { uploadAvatar } from "../utils/avatarUpload";
+import { isDemoUser, showDemoBlocked } from "../utils/demoUser";
+import { getDemoSandbox, updateDemoSandbox } from "../utils/demoSandbox";
+
 function cleanSocialUsername(value) {
   return value
     .trim()
@@ -80,22 +83,30 @@ export default function ProfileSettings() {
         .maybeSingle();
 
       if (data) {
-        setProfile({
-          username: data.username || "",
-          full_name: data.full_name || "",
-          bio: data.bio || "",
-          avatar_url: data.avatar_url || "",
-          banner_url: data.banner_url || "",
+        const sandbox = getDemoSandbox();
+        const sandboxProfile =
+          isDemoUser(currentUser) ? sandbox.profile || {} : {};
 
-          x_username: data.x_username || "",
-          threads_username: data.threads_username || "",
-          tiktok_username: data.tiktok_username || "",
-        });
+        const mergedProfile = {
+          username: sandboxProfile.username ?? data.username ?? "",
+          full_name: sandboxProfile.full_name ?? data.full_name ?? "",
+          bio: sandboxProfile.bio ?? data.bio ?? "",
+          avatar_url: sandboxProfile.avatar_url ?? data.avatar_url ?? "",
+          banner_url: sandboxProfile.banner_url ?? data.banner_url ?? "",
 
-        setOriginalUsername(data.username || "");
+          x_username: sandboxProfile.x_username ?? data.x_username ?? "",
+          threads_username:
+            sandboxProfile.threads_username ?? data.threads_username ?? "",
+          tiktok_username:
+            sandboxProfile.tiktok_username ?? data.tiktok_username ?? "",
+        };
+
+        setProfile(mergedProfile);
+
+        setOriginalUsername(mergedProfile.username || "");
         setUsernameStatus("available");
-        setAvatarPreview(data.avatar_url || null);
-        setBannerPreview(data.banner_url || null);
+        setAvatarPreview(mergedProfile.avatar_url || null);
+        setBannerPreview(mergedProfile.banner_url || null);
       }
 
       setLoading(false);
@@ -175,6 +186,26 @@ export default function ProfileSettings() {
         .replace(/[^a-zA-Z0-9_]/g, "")
         .toLowerCase();
 
+      if (isDemoUser(user)) {
+        updateDemoSandbox((current) => ({
+          ...current,
+          profile: {
+            username: cleanUsername,
+            full_name: profile.full_name.trim(),
+            bio: profile.bio.trim(),
+            x_username: cleanSocialUsername(profile.x_username) || "",
+            threads_username: cleanSocialUsername(profile.threads_username) || "",
+            tiktok_username: cleanSocialUsername(profile.tiktok_username) || "",
+            avatar_url: avatarUrl,
+            banner_url: bannerUrl,
+          },
+        }));
+
+        alert("Demo profile updated for this session only.");
+        navigate(`/profile/${user.id}`);
+        return;
+      }
+
       const { error } = await supabase.from("profiles").upsert({
         id: user.id,
         username: cleanUsername,
@@ -208,6 +239,11 @@ export default function ProfileSettings() {
   };
 
   const handleDeleteAccount = async () => {
+    if (isDemoUser(user)) {
+      showDemoBlocked("Demo users cannot delete the demo account.");
+      return;
+    }
+
     const confirmDelete = window.confirm(
       "Are you sure you want to delete your account? This cannot be undone."
     );

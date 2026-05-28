@@ -1,7 +1,9 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useCallback, useEffect, useState } from "react";
-
+import { resetDemoSandbox } from "../utils/demoSandbox";
+import { isDemoUser } from "../utils/demoUser";
+import { demoNotifications } from "../utils/demoData";
 
 export default function AppLayout() {
   const location = useLocation();
@@ -14,6 +16,16 @@ export default function AppLayout() {
   const loadUnreadNotifications = useCallback(async (currentUserId = userId) => {
   if (!currentUserId) return;
 
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData?.user;
+
+  if (isDemoUser(user)) {
+    setUnreadNotifications(
+      demoNotifications.filter((n) => !n.is_read).length
+    );
+    return;
+  }
+
   const { count, error } = await supabase
     .from("notifications")
     .select("*", { count: "exact", head: true })
@@ -25,12 +37,18 @@ export default function AppLayout() {
   }
 }, [userId]);
 
-
   // 👤 GET USER ID FOR PROFILE ROUTE
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUserId(data?.user?.id || null);
+      if (isDemoUser(data?.user)) {
+        setUnreadNotifications(
+          demoNotifications.filter((n) => !n.is_read).length
+        );
+        setIsAdminOrMod(true);
+        return;
+      }
       const currentUserId = data?.user?.id;
 
       if (!currentUserId) return;
@@ -117,7 +135,10 @@ useEffect(() => {
 
 
   const logout = async () => {
+    resetDemoSandbox();
+
     await supabase.auth.signOut();
+
     window.location.href = "/";
   };
 

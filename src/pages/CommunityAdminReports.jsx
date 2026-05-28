@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isDemoUser } from "../utils/demoUser";
+import { demoReportedPosts } from "../utils/demoData";
 
 export default function CommunityAdminReports() {
   const { id } = useParams();
@@ -18,6 +20,7 @@ export default function CommunityAdminReports() {
 
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
+      const demoMode = isDemoUser(user);
 
       if (!user) {
         navigate("/login");
@@ -37,6 +40,12 @@ export default function CommunityAdminReports() {
       }
 
       setRole(membership.role);
+
+      if (demoMode) {
+        setReportedPosts(demoReportedPosts);
+        setLoading(false);
+        return;
+      }
 
       const { data: reportedData, error: reportedError } = await supabase
         .from("posts")
@@ -80,6 +89,17 @@ export default function CommunityAdminReports() {
   const hidePost = async (postId) => {
     if (!canModerate) return;
 
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      setReportedPosts((prev) =>
+        prev.filter((p) => p.id !== postId)
+      );
+
+      alert("Demo preview: post hidden.");
+      return;
+    }
+
     const { error } = await supabase
       .from("posts")
       .update({
@@ -98,6 +118,17 @@ export default function CommunityAdminReports() {
 
   const clearReport = async (postId) => {
     if (!canModerate) return;
+
+    const { data } = await supabase.auth.getUser();
+
+    if (isDemoUser(data?.user)) {
+      setReportedPosts((prev) =>
+        prev.filter((p) => p.id !== postId)
+      );
+
+      alert("Demo preview: report cleared.");
+      return;
+    }
 
     const { error } = await supabase
       .from("posts")

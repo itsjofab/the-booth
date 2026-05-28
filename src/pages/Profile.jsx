@@ -9,6 +9,11 @@ import {
   getAvatarUrl,
   getProfileBanner,
 } from "../utils/uiDefaults";
+import { isDemoUser } from "../utils/demoUser";
+import {
+  getDemoSandbox,
+} from "../utils/demoSandbox";
+import { demoReportedFeedPost } from "../utils/demoData";
 
 export default function Profile() {
   const { id } = useParams();
@@ -51,7 +56,12 @@ export default function Profile() {
 
   useEffect(() => {
     const load = async () => {
-    setLoading(true);
+      setLoading(true);
+
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUser = userData?.user;
+      const demoMode =
+        isDemoUser(currentUser) && currentUser.id === id;
 
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
@@ -76,7 +86,47 @@ export default function Profile() {
         return;
       }
 
-      setProfile(profileData);
+      if (demoMode) {
+        const sandbox = getDemoSandbox();
+        const sandboxProfile = sandbox.profile || {};
+
+        setProfile({
+          ...profileData,
+          ...sandboxProfile,
+        });
+      } else {
+        setProfile(profileData);
+      }
+
+      if (demoMode) {
+        const sandbox = getDemoSandbox();
+
+        const demoPosts = [
+          demoReportedFeedPost,
+          ...(sandbox.posts || []),
+        ];
+
+        setPosts(
+          demoPosts.filter((post) => post.user_id === currentUser.id)
+        );
+
+        const demoComments = Object.values(sandbox.comments || {})
+          .flat()
+          .filter((comment) => comment.user_id === currentUser.id);
+
+        setReplies(demoComments);
+
+        const likedPostIds = sandbox.likedPostIds || [];
+
+        setLikedPosts(
+          demoPosts.filter((post) => likedPostIds.includes(post.id))
+        );
+
+        setLikedComments([]);
+        setLoading(false);
+        return;
+      }
+
 
       // POSTS
       const { data: postsData, error: postsError } = await supabase

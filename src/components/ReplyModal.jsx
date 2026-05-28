@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { uploadPostMedia } from "../utils/uploadPostMedia";
+import { isDemoUser } from "../utils/demoUser";
+import { updateDemoSandbox } from "../utils/demoSandbox";
 
 export default function ReplyModal({
   postId,
@@ -99,6 +101,37 @@ export default function ReplyModal({
       }
 
       if (isEditing) {
+        if (isDemoUser(user) || String(editingComment.id).startsWith("demo-comment-")) {
+          const updatedDemoComment = {
+            ...editingComment,
+            content: content.trim(),
+            image_url: null,
+            media_url: null,
+            media_type: null,
+            gif_url: cleanGifUrl || null,
+          };
+
+          updateDemoSandbox((current) => {
+            const existing = current.comments?.[postId] || [];
+
+            return {
+              ...current,
+              comments: {
+                ...(current.comments || {}),
+                [postId]: existing.map((comment) =>
+                  comment.id === editingComment.id
+                    ? updatedDemoComment
+                    : comment
+                ),
+              },
+            };
+          });
+
+          onUpdated?.();
+          onClose?.();
+          return;
+        }
+
         const { error } = await supabase
           .from("comments")
           .update({
@@ -119,6 +152,52 @@ export default function ReplyModal({
         if (error) throw error;
 
         onUpdated?.();
+        onClose?.();
+        return;
+      }
+
+      if (isDemoUser(user)) {
+        const demoComment = {
+          id: `demo-comment-${Date.now()}`,
+          post_id: postId,
+          user_id: user.id,
+          content: content.trim(),
+          parent_comment_id: parentCommentId,
+          image_url: null,
+          media_url: null,
+          media_type: null,
+          gif_url: cleanGifUrl || null,
+          is_deleted: false,
+          created_at: new Date().toISOString(),
+          profile: {
+            username: "demo",
+            full_name: "Demo User",
+            avatar_url: "/default-avatar.png",
+          },
+        };
+
+        updateDemoSandbox((current) => {
+          const existing = current.comments?.[postId] || [];
+
+          return {
+            ...current,
+            comments: {
+              ...(current.comments || {}),
+              [postId]: [...existing, demoComment],
+            },
+          };
+        });
+
+        setContent("");
+        setImageFile(null);
+        setImagePreview(null);
+        setExistingImageUrl(null);
+        setMediaType(null);
+        setGifUrl("");
+        setShowGifInput(false);
+        setGifError(false);
+
+        onCreated?.();
         onClose?.();
         return;
       }

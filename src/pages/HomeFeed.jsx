@@ -3,6 +3,9 @@ import { supabase } from "../lib/supabaseClient";
 import PostCard from "../components/PostCard";
 import PostSkeleton from "../components/PostSkeleton";
 import { fetchPosts } from "../lib/feedService";
+import { isDemoUser } from "../utils/demoUser";
+import { demoReportedFeedPost } from "../utils/demoData";
+import { getDemoSandbox } from "../utils/demoSandbox";
 
 const PAGE_SIZE = 10;
 
@@ -92,8 +95,19 @@ export default function HomeFeed() {
           profile: post.profile || post.profiles || null,
         }));
 
+        const { data: userData } = await supabase.auth.getUser();
+        const user = userData?.user;
+
+        const sandbox = getDemoSandbox();
+        const demoPosts = sandbox.posts || [];
+
+        const finalPosts =
+          isDemoUser(user) && isFirstLoad
+            ? [demoReportedFeedPost, ...demoPosts, ...paginatedWithProfiles]
+            : paginatedWithProfiles;
+
         if (isFirstLoad) {
-          setPosts(paginatedWithProfiles);
+          setPosts(finalPosts);
         } else {
           setPosts((prev) => {
             const existingIds = new Set(prev.map((p) => p.id));

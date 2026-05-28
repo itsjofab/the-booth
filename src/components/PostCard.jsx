@@ -5,6 +5,8 @@ import ReplyModal from "./ReplyModal";
 import QuotePostModal from "./QuotePostModal";
 import CreatePost from "./CreatePost";
 import { getCachedCount, setCachedCount } from "../utils/countCache";
+import { isDemoUser } from "../utils/demoUser";
+import { getDemoSandbox, updateDemoSandbox } from "../utils/demoSandbox";
 
 export default function PostCard({
   post,
@@ -121,6 +123,18 @@ export default function PostCard({
     let mounted = true;
 
     const fetchCommentsCount = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (isDemoUser(user)) {
+        const sandbox = getDemoSandbox();
+        const demoComments = sandbox.comments?.[displayPost.id] || [];
+
+        setCommentsCount(demoComments.length);
+        setCachedCount(`post-comments-${displayPost.id}`, demoComments.length);
+        return;
+      }
+      
       const { count } = await supabase
         .from("comments")
         .select("*", { count: "exact", head: true })
@@ -179,6 +193,17 @@ export default function PostCard({
     if (!displayPost?.id) return;
 
     const checkStatus = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+
+      if (isDemoUser(user)) {
+        const sandbox = getDemoSandbox();
+
+        setLiked((sandbox.likedPostIds || []).includes(displayPost.id));
+        setBookmarked((sandbox.bookmarkedPostIds || []).includes(displayPost.id));
+        return;
+      }
+
       if (userId) {
         const { data: likeData } = await supabase
           .from("likes")
@@ -231,6 +256,24 @@ export default function PostCard({
       return updated;
     });
 
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (isDemoUser(user)) {
+      updateDemoSandbox((current) => {
+        const likedPostIds = current.likedPostIds || [];
+
+        return {
+          ...current,
+          likedPostIds: next
+            ? [...new Set([...likedPostIds, displayPost.id])]
+            : likedPostIds.filter((id) => id !== displayPost.id),
+        };
+      });
+
+      return;
+    }
+
     try {
       if (next) {
         const { error } = await supabase.from("likes").insert({
@@ -268,6 +311,25 @@ export default function PostCard({
 
     const next = !bookmarked;
     setBookmarked(next);
+
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user;
+
+    if (isDemoUser(user)) {
+      updateDemoSandbox((current) => {
+        const bookmarkedPostIds = current.bookmarkedPostIds || [];
+
+        return {
+          ...current,
+          bookmarkedPostIds: next
+            ? [...new Set([...bookmarkedPostIds, displayPost.id])]
+            : bookmarkedPostIds.filter((id) => id !== displayPost.id),
+        };
+      });
+
+      showToast(next ? "Added to your bookmarks" : "Removed from bookmarks");
+      return;
+    }
 
     try {
       if (next) {

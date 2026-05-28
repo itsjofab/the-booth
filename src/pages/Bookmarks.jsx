@@ -6,6 +6,9 @@ import CommentCard from "../components/CommentCard";
 import PostSkeleton from "../components/PostSkeleton";
 import { fetchPosts } from "../lib/feedService";
 import { attachPostProfiles } from "../utils/attachPostProfiles";
+import { isDemoUser } from "../utils/demoUser";
+import { getDemoSandbox } from "../utils/demoSandbox";
+import { demoReportedFeedPost } from "../utils/demoData";
 
 export default function Bookmarks() {
   const navigate = useNavigate();
@@ -53,6 +56,31 @@ export default function Bookmarks() {
       if (!user) {
         setItems([]);
         setLoading(false);
+        return;
+      }
+
+      if (isDemoUser(user)) {
+        const sandbox = getDemoSandbox();
+
+        const allDemoPosts = [
+          demoReportedFeedPost,
+          ...(sandbox.posts || []),
+        ];
+
+        const demoBookmarkedPosts = allDemoPosts.filter((post) =>
+          (sandbox.bookmarkedPostIds || []).includes(post.id)
+        );
+
+        const demoPostItems = demoBookmarkedPosts.map((post) => ({
+          type: "post",
+          id: `post-${post.id}`,
+          created_at: new Date().toISOString(),
+          item: post,
+        }));
+
+        setItems(demoPostItems);
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
 

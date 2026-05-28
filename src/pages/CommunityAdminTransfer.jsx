@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { isDemoUser, showDemoBlocked } from "../utils/demoUser";
 
 const PAGE_SIZE = 10;
 
@@ -124,6 +125,14 @@ export default function CommunityAdminTransfer() {
   );
 
   const transferOwnership = async (member) => {
+    const { data: auth } = await supabase.auth.getUser();
+
+  
+    if (isDemoUser(auth?.user)) {
+      showDemoBlocked("Demo users cannot transfer ownership.");
+      return;
+    }
+
     const confirmTransfer = window.confirm(
       `Transfer ownership to @${member.profile?.username || "user"}?\n\nYou will become a regular member.`
     );

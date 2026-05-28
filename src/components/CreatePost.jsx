@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { uploadPostMedia } from "../utils/uploadPostMedia";
+import { isDemoUser } from "../utils/demoUser";
+import { updateDemoSandbox } from "../utils/demoSandbox";
 
 export default function CreatePost({
   onCreate,
@@ -89,6 +91,39 @@ const [existingImageUrl, setExistingImageUrl] = useState(
         throw new Error("You must be logged in to post.");
       }
 
+      if (isDemoUser(user) && !isEditing) {
+        const demoPost = {
+          id: `demo-post-${Date.now()}`,
+          content: content.trim(),
+          image_url: null,
+          media_url: null,
+          media_type: null,
+          gif_url: gifUrl.trim() || null,
+          community_id: window.location.pathname.startsWith("/c/")
+            ? window.location.pathname.split("/")[2]
+            : null,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          likes_count: 0,
+          is_hidden: false,
+          is_reported: false,
+          profile: {
+            username: "demo",
+            avatar_url: "/default-avatar.png",
+          },
+        };
+
+        updateDemoSandbox((current) => ({
+        ...current,
+        posts: [demoPost, ...(current.posts || [])],
+      }));
+
+      window.dispatchEvent(new Event("demo-post-created"));
+
+      resetForm();
+      return;
+      }
+
       let imageUrl = existingImageUrl;
 
       if (imageFile) {
@@ -96,7 +131,29 @@ const [existingImageUrl, setExistingImageUrl] = useState(
       }
 
       if (isEditing) {
-        const { error } = await supabase
+        if (isDemoUser(user) || String(editingPost.id).startsWith("demo-")) {
+          const updatedDemoPost = {
+            ...editingPost,
+            content: content.trim(),
+            image_url: null,
+            media_url: null,
+            media_type: null,
+            gif_url: gifUrl.trim() || null,
+          };
+
+          updateDemoSandbox((current) => ({
+            ...current,
+            posts: (current.posts || []).map((post) =>
+              post.id === editingPost.id ? updatedDemoPost : post
+            ),
+          }));
+
+          onUpdated?.(updatedDemoPost);
+          resetForm();
+          return;
+        }
+
+const { error } = await supabase
           .from("posts")
           .update({
             content: content.trim(),
